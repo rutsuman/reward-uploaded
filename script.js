@@ -15,9 +15,34 @@ let questTimers = {}; // Store active timers
 let questStartTimes = loadQuestStartTimes(); // Load saved start times
 let questAccepted = loadQuestAccepted(); // Track which quests have been accepted
 let questRewards = loadQuestRewards() || {}; // Reward system
-let deductedRewards = loadDeductedRewards(); // Track total deductions
+let standardDeductions = loadStandardDeductions(); // Object: { standardCode: totalDeducted }
 let studentWorks = loadStudentWorks();
 let hotspotPositions = {};
+
+// ==========================
+// STANDARD NAMES FOR REWARDS BREAKDOWN
+// ==========================
+const STANDARD_NAMES = {
+    "Art.FA.CR.1.1.IA": "Generate: Conceptualize artistic ideas",
+    "Art.FA.CR.1.2.IA": "Practice: Organize and develop ideas",
+    "Art.FA.CR.2.1.IA": "Explore: Refine artistic work",
+    "Art.FA.CR.2.3.IA": "Transform: Document creative process",
+    "Art.FA.CR.3.1.IA": "Reflect: Reflect on artistic process",
+    "Art.FA.PR.6.1.IA": "Analyze: Convey meaning through presentation",
+    "Art.FA.RE.8.1.8A": "Interpret: Interpret intent and meaning",
+    "Art.FA.CN.10.1.IA": "Document: Synthesize and relate knowledge"
+};
+
+const STANDARD_SHORT_NAMES = {
+    "Art.FA.CR.1.1.IA": "Generate",
+    "Art.FA.CR.1.2.IA": "Practice",
+    "Art.FA.CR.2.1.IA": "Explore",
+    "Art.FA.CR.2.3.IA": "Transform",
+    "Art.FA.CR.3.1.IA": "Reflect",
+    "Art.FA.PR.6.1.IA": "Analyze",
+    "Art.FA.RE.8.1.8A": "Interpret",
+    "Art.FA.CN.10.1.IA": "Document"
+};
 
 function loadStudentWorks() {
   const data = localStorage.getItem("studentWorks");
@@ -143,7 +168,6 @@ function deleteWorkImage() {
   }
 }
 
-// Set up event listeners for the work overlay
 function initializeWorkOverlay() {
   console.log("Initializing work overlay...");
   
@@ -237,9 +261,29 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeWorkOverlay();
   }, 500); // Small delay to ensure DOM is fully ready
 
- // Initialize gallery
+  // Initialize gallery
   initializeGallery();
+  updateProfileUI();
+  recalculateAllQuestRewards();
+
+  // Initialize rewards overlay
+  initializeRewardsOverlay();
+
+  const container = document.getElementById("map-container");
 });
+
+
+// Load standard deductions from localStorage
+function loadStandardDeductions() {
+    const data = localStorage.getItem("standardDeductions");
+    return data ? JSON.parse(data) : {};
+}
+
+// Save standard deductions to localStorage
+function saveStandardDeductions() {
+    localStorage.setItem("standardDeductions", JSON.stringify(standardDeductions));
+}
+
 
 // ==========================
 // STUDENT PROFILE SAVE/LOAD
@@ -689,7 +733,6 @@ function openQuest(cityId) {
   document.getElementById("quest-reward").innerHTML =
     rewardCoins ? `<strong>${rewardCoins} 💰</strong>` : "—";
 
-  // Also update profile rewards when quest is opened
   updateProfileRewards();
   //=================================================================================
   const pathContainer = document.getElementById("quest-paths");
@@ -1957,39 +2000,36 @@ updateProfileRewards();
 // DEDUCT REWARDS SYSTEM
 // ==========================
 
-// Load deducted rewards from localStorage
-function loadDeductedRewards() {
-    const data = localStorage.getItem("deductedRewards");
-    return data ? parseInt(data) : 0;
-}
-
-// Save deducted rewards to localStorage
-function saveDeductedRewards() {
-    localStorage.setItem("deductedRewards", deductedRewards.toString());
-}
-
-// Calculate net rewards (total earned minus deductions)
-function calculateNetRewards() {
-    let totalEarned = 0;
+// Calculate net rewards per standard (total earned minus deductions for that standard)
+function calculateNetRewardsPerStandard() {
+    const { totals } = calculateRewardsPerStandard();
+    const netTotals = {};
     
-    // Calculate from all completed quests
-    Object.entries(completedQuests).forEach(([qid, isCompleted]) => {
-        if (isCompleted) {
-            const coins = calculateQuestRewardCoins(qid);
-            totalEarned += coins;
-        }
+    Object.keys(totals).forEach(standardCode => {
+        const earned = totals[standardCode] || 0;
+        const deducted = standardDeductions[standardCode] || 0;
+        netTotals[standardCode] = Math.max(0, earned - deducted);
     });
     
-    return Math.max(0, totalEarned - deductedRewards);
+    return netTotals;
+}
+
+// Calculate total net rewards across all standards
+function calculateTotalNetRewards() {
+    const netTotals = calculateNetRewardsPerStandard();
+    return Object.values(netTotals).reduce((sum, val) => sum + val, 0);
+}
+
+// Calculate net rewards for profile display (for backward compatibility)
+function calculateNetRewards() {
+    return calculateTotalNetRewards();
 }
 
 // Update profile rewards display with net amount
 function updateProfileRewards() {
-    const netRewards = calculateNetRewards();
+    const netRewards = calculateTotalNetRewards();
     
     console.log("=== DEBUG: updateProfileRewards() called ===");
-    console.log("Total earned:", getTotalEarnedRewards());
-    console.log("Deducted:", deductedRewards);
     console.log("Net rewards:", netRewards);
     
     // UPDATE THE SPAN ELEMENT
@@ -2000,6 +2040,28 @@ function updateProfileRewards() {
         console.log("Updated element with:", el.innerText);
     } else {
         console.error("ERROR: Could not find #profile-total-coins element!");
+    }
+    
+    const rewardsOverlay = document.getElementById("rewards-overlay");
+    if (rewardsOverlay && rewardsOverlay.style.display === "flex") {
+        const { totals, sources } = calculateRewardsPerStandard();
+        renderRewardsTable(totals, sources);
+        
+        const totalAll = Object.values(totals).reduce((sum, val) => sum + val, 0);
+        const totalSummary = document.getElementById("rewards-total-summary");
+        if (totalSummary) {
+            totalSummary.innerHTML = `Total Rewards: <strong>${totalAll} 💰</strong>`;
+        }
+    }
+    
+    // Also update quest reward display if quest is open
+    if (currentQuestId && document.getElementById("quest-overlay").style.display === "block") {
+        const questRewardEl = document.getElementById("quest-reward");
+        if (questRewardEl) {
+            // Show individual quest reward (not affected by deductions)
+            const questCoins = questRewards[currentQuestId] || 0;
+            questRewardEl.innerHTML = questCoins ? `<strong>${questCoins} 💰</strong>` : "—";
+        }
     }
 }
 
@@ -2015,8 +2077,8 @@ function getTotalEarnedRewards() {
     return total;
 }
 
-// Deduct rewards function
-function deductRewards() {
+// Deduct rewards from a specific standard
+function deductFromStandard(standardCode, maxAvailable) {
     // Ask for teacher password
     const password = prompt("Enter teacher password to deduct rewards:");
     
@@ -2025,20 +2087,19 @@ function deductRewards() {
         return;
     }
     
-    // Show current balance and ask for deduction amount
-    const currentNet = calculateNetRewards();
-    const totalEarned = getTotalEarnedRewards();
+    const currentAvailable = maxAvailable - (standardDeductions[standardCode] || 0);
     
-    if (currentNet <= 0) {
-        alert("Student has no rewards to deduct!");
+    if (currentAvailable <= 0) {
+        alert(`No rewards available to deduct for ${STANDARD_SHORT_NAMES[standardCode] || standardCode}`);
         return;
     }
     
     const deduction = prompt(
-        `Current balance: ${currentNet} 💰\n` +
-        `Total earned: ${totalEarned} 💰\n` +
-        `Already deducted: ${deductedRewards} 💰\n\n` +
-        `Enter amount to deduct (max ${currentNet}):`
+        `${STANDARD_SHORT_NAMES[standardCode] || standardCode}\n` +
+        `Earned: ${maxAvailable} 💰\n` +
+        `Already deducted: ${standardDeductions[standardCode] || 0} 💰\n` +
+        `Currently available: ${currentAvailable} 💰\n\n` +
+        `Enter amount to deduct (max ${currentAvailable}):`
     );
     
     if (!deduction || isNaN(deduction) || deduction.trim() === "") {
@@ -2053,49 +2114,77 @@ function deductRewards() {
         return;
     }
     
-    if (deductionAmount > currentNet) {
-        alert(`Cannot deduct ${deductionAmount}. Maximum available: ${currentNet}`);
+    if (deductionAmount > currentAvailable) {
+        alert(`Cannot deduct ${deductionAmount}. Maximum available: ${currentAvailable}`);
         return;
     }
     
-    // Ask for reason (optional)
-    const reason = prompt("Optional: Enter reason for deduction (e.g., 'Purchased art supplies'):") || "No reason provided";
+    // Ask for reason
+    const reason = prompt("Optional: Enter reason for deduction:") || "No reason provided";
     
     // Confirm deduction
-    if (confirm(`Deduct ${deductionAmount} 💰?\n\nReason: ${reason}\n\nNew balance will be: ${currentNet - deductionAmount} 💰`)) {
-        // Add to total deductions
-        deductedRewards += deductionAmount;
-        saveDeductedRewards();
+    if (confirm(`Deduct ${deductionAmount} 💰 from ${STANDARD_SHORT_NAMES[standardCode] || standardCode}?\n\nReason: ${reason}`)) {
+        // Update standard deductions
+        standardDeductions[standardCode] = (standardDeductions[standardCode] || 0) + deductionAmount;
+        saveStandardDeductions();
         
-        // Force update all UI elements that show rewards
+        // Log the deduction
+        logStandardDeduction(standardCode, deductionAmount, reason);
+        
+        // Refresh displays
         refreshAllRewardDisplays();
-
-        // Log the deduction (for record keeping)
-        logDeduction(deductionAmount, reason);
         
-        alert(`✅ ${deductionAmount} 💰 deducted successfully!\nNew balance: ${calculateNetRewards()} 💰`);
+        alert(`✅ ${deductionAmount} 💰 deducted from ${STANDARD_SHORT_NAMES[standardCode] || standardCode}!\n` +
+              `New available: ${currentAvailable - deductionAmount} 💰`);
     }
 }
-// NEW FUNCTION: Refresh all reward displays in the UI
+
+// Log standard-specific deductions
+function logStandardDeduction(standardCode, amount, reason) {
+    const deductionLog = loadDeductionLog();
+    const logEntry = {
+        date: new Date().toISOString(),
+        standard: standardCode,
+        standardName: STANDARD_NAMES[standardCode] || standardCode,
+        amount: amount,
+        reason: reason,
+        teacher: "Teacher"
+    };
+    
+    deductionLog.push(logEntry);
+    localStorage.setItem("deductionLog", JSON.stringify(deductionLog));
+}
+
+// Update the refresh function
 function refreshAllRewardDisplays() {
-    // Update profile total
-    updateProfileRewards();
-    
-    // If profile overlay is open, ensure it's updated
-    const profileOverlay = document.getElementById("profile-overlay");
-    if (profileOverlay && profileOverlay.style.display === "flex") {
-        // Force a re-render of the profile section
-        updateProfileRewards();
+    // Update profile total (using net total)
+    const el = document.getElementById("profile-total-coins");
+    if (el) {
+        el.innerText = `${calculateTotalNetRewards()} 💰`;
     }
     
-    // If quest overlay is open, update the reward display there too
-    const questOverlay = document.getElementById("quest-overlay");
-    if (questOverlay && questOverlay.style.display === "block") {
-        // Just update the profile reward display within the quest overlay if it exists
-        updateProfileRewards();
+    // Update rewards overlay if open
+    const rewardsOverlay = document.getElementById("rewards-overlay");
+    if (rewardsOverlay && rewardsOverlay.style.display === "flex") {
+        const { totals, sources } = calculateRewardsPerStandard();
+        renderRewardsTable(totals, sources);
+        
+        const totalSummary = document.getElementById("rewards-total-summary");
+        if (totalSummary) {
+            totalSummary.innerHTML = `Total Net Rewards: <strong>${calculateTotalNetRewards()} 💰</strong>`;
+        }
     }
     
-    console.log("All reward displays refreshed. New net balance:", calculateNetRewards());
+    // Update quest overlay if open
+    if (currentQuestId && document.getElementById("quest-overlay").style.display === "block") {
+        const questRewardEl = document.getElementById("quest-reward");
+        if (questRewardEl) {
+            const questCoins = questRewards[currentQuestId] || 0;
+            questRewardEl.innerHTML = questCoins ? `<strong>${questCoins} 💰</strong>` : "—";
+        }
+    }
+    
+    console.log("All reward displays refreshed. New net balance:", calculateTotalNetRewards());
 }
 
 // Log deductions for record keeping
@@ -2105,9 +2194,9 @@ function logDeduction(amount, reason) {
         date: new Date().toISOString(),
         amount: amount,
         reason: reason,
-        teacher: "Teacher", // You could store teacher name if you have multiple
-        balanceBefore: calculateNetRewards() + amount, // Before deduction
-        balanceAfter: calculateNetRewards() // After deduction
+        teacher: "Teacher",
+        balanceBefore: calculateTotalNetRewards() + amount,
+        balanceAfter: calculateTotalNetRewards()
     };
     
     deductionLog.push(logEntry);
@@ -2141,27 +2230,31 @@ function viewDeductionHistory() {
     deductionLog.forEach((entry, index) => {
         const date = new Date(entry.date).toLocaleString();
         historyText += `#${index + 1}: ${date}\n`;
+        historyText += `Standard: ${entry.standardName || 'Unknown'}\n`;
         historyText += `Amount: -${entry.amount} 💰\n`;
         historyText += `Reason: ${entry.reason}\n`;
-        historyText += `Balance before: ${entry.balanceBefore} 💰\n`;
-        historyText += `Balance after: ${entry.balanceAfter} 💰\n`;
         historyText += `\n`;
     });
     
-    historyText += `\nTotal deducted: ${deductedRewards} 💰`;
-    historyText += `\nCurrent net balance: ${calculateNetRewards()} 💰`;
+    historyText += `\nTotal deducted across all standards: ${Object.values(standardDeductions).reduce((s, v) => s + v, 0)} 💰`;
+    historyText += `\nCurrent net balance: ${calculateTotalNetRewards()} 💰`;
     
     alert(historyText);
 }
 
 // Initialize deduction system
 function initializeDeductionSystem() {
-    // Add event listener to the deduct button
+    // Remove the old deduct button listener if it exists
     const deductBtn = document.getElementById("deduct-rewards-btn");
     if (deductBtn) {
-        deductBtn.addEventListener("click", deductRewards);
+        // Replace with a message that deduction is now per-standard
+        deductBtn.addEventListener("click", () => {
+            alert("Please use the Deduct buttons in the Rewards overlay (click on 'Reward:' link in profile) to deduct from specific standards.");
+            
+            // Open rewards overlay to show the deduction buttons
+            openRewardsOverlay();
+        });
     }
-    
 }
 
 // ==========================
@@ -2185,7 +2278,7 @@ function recalculateAllQuestRewards() {
     
     saveQuestRewards();
     refreshAllRewardDisplays();
-    console.log("Recalculation complete. Net rewards:", calculateNetRewards());
+    console.log("Recalculation complete. Net rewards:", calculateTotalNetRewards());
 }
 
 // Update the DOMContentLoaded event listener to initialize the deduction system
@@ -2193,12 +2286,14 @@ document.addEventListener("DOMContentLoaded", () => {
     updateProfileUI();
     recalculateAllQuestRewards();
     
-    // ... existing code ...
-    
     // Initialize deduction system
     initializeDeductionSystem();
     
-    // ... rest of your existing code ...
+        // Load standard deductions
+    standardDeductions = loadStandardDeductions();
+    
+    // Update display with net totals
+    refreshAllRewardDisplays();
 });
 
 // Also update when profile is opened
@@ -2226,7 +2321,257 @@ document.addEventListener("DOMContentLoaded", () => {
     // ... rest of your existing code ...
 });
 
+// ==========================
+// REWARDS BY STANDARD SYSTEM (PROFILE VERSION)
+// ==========================
 
+// Calculate rewards per standard across ALL completed quests
+function calculateRewardsPerStandard() {
+    // Initialize totals for each standard
+    const standardTotals = {};
+    
+    // Initialize all standards with 0
+    Object.keys(STANDARD_NAMES).forEach(standard => {
+        standardTotals[standard] = 0;
+    });
+    
+    // Track which quests contributed to each standard
+    const standardSources = {};
+    Object.keys(STANDARD_NAMES).forEach(standard => {
+        standardSources[standard] = [];
+    });
+    
+    // Loop through all completed quests
+    Object.entries(completedQuests).forEach(([questId, isCompleted]) => {
+        if (!isCompleted) return;
+        
+        const quest = quests[questId];
+        if (!quest || !quest.rubric) return;
+        
+        // Determine which column to use (mvpGrade or grade)
+        const column = quest.style === "mvp" ? "mvpGrade" : "grade";
+        const grades = questGrades[questId]?.[column];
+        
+        if (!grades) return;
+        
+        // For each standard in this quest's rubric
+        quest.rubric.standards.forEach(std => {
+            const standardCode = std.code;
+            const grade = grades[standardCode];
+            
+            if (typeof grade === "number" && !isNaN(grade)) {
+                // Calculate coins for this standard (10 coins per grade point)
+                const coins = Math.round(grade * 10);
+                
+                // Add to standard total
+                if (standardTotals.hasOwnProperty(standardCode)) {
+                    standardTotals[standardCode] += coins;
+                    
+                    // Track source for potential detailed view
+                    standardSources[standardCode].push({
+                        questId,
+                        questTitle: quest.title,
+                        grade,
+                        coins
+                    });
+                }
+            }
+        });
+    });
+    
+    return {
+        totals: standardTotals,
+        sources: standardSources
+    };
+}
+
+// Calculate total rewards across all standards
+function calculateTotalAllStandards() {
+    const { totals } = calculateRewardsPerStandard();
+    return Object.values(totals).reduce((sum, val) => sum + val, 0);
+}
+
+// Open the rewards overlay
+function openRewardsOverlay() {
+    const overlay = document.getElementById("rewards-overlay");
+    if (!overlay) {
+        console.error("Rewards overlay not found!");
+        return;
+    }
+    
+    // Calculate rewards data
+    const { totals, sources } = calculateRewardsPerStandard();
+    const totalAll = Object.values(totals).reduce((sum, val) => sum + val, 0);
+    
+    // Update total summary
+    const totalSummary = document.getElementById("rewards-total-summary");
+    if (totalSummary) {
+        totalSummary.innerHTML = `Total Rewards: <strong>${totalAll} 💰</strong>`;
+    }
+    
+    // Render the table
+    renderRewardsTable(totals, sources);
+    
+    // Show overlay
+    overlay.style.display = "flex";
+}
+
+// Close the rewards overlay
+function closeRewardsOverlay() {
+    const overlay = document.getElementById("rewards-overlay");
+    if (overlay) {
+        overlay.style.display = "none";
+    }
+}
+
+// Render the rewards table
+// Update renderRewardsTable to show earned and net amounts
+function renderRewardsTable(totals, sources) {
+    const tableBody = document.getElementById("rewards-table-body");
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = "";
+    
+    // Calculate net totals
+    const netTotals = calculateNetRewardsPerStandard();
+    
+    // Sort standards alphabetically for consistent display
+    const sortedStandards = Object.keys(STANDARD_NAMES).sort();
+    
+    sortedStandards.forEach(standardCode => {
+        const row = document.createElement("tr");
+        
+        // Standard code cell
+        const codeCell = document.createElement("td");
+        codeCell.className = "standard-code";
+        codeCell.textContent = standardCode;
+        
+        // Standard name cell
+        const nameCell = document.createElement("td");
+        nameCell.className = "standard-name";
+        nameCell.textContent = STANDARD_SHORT_NAMES[standardCode] || standardCode;
+        
+        // Earned amount cell
+        const earnedCell = document.createElement("td");
+        earnedCell.className = "reward-amount earned";
+        const earned = totals[standardCode] || 0;
+        earnedCell.innerHTML = `${earned} 💰`;
+        
+        // Deducted amount cell
+        const deductedCell = document.createElement("td");
+        deductedCell.className = "reward-amount deducted";
+        const deducted = standardDeductions[standardCode] || 0;
+        deductedCell.innerHTML = `-${deducted} 💰`;
+        
+        // Net amount cell
+        const netCell = document.createElement("td");
+        netCell.className = "reward-amount net";
+        const net = netTotals[standardCode] || 0;
+        netCell.innerHTML = `<strong>${net} 💰</strong>`;
+        
+        // Add deduction button
+        const actionCell = document.createElement("td");
+        actionCell.className = "reward-action";
+        const deductBtn = document.createElement("button");
+        deductBtn.className = "deduct-standard-btn";
+        deductBtn.textContent = "Deduct";
+        deductBtn.dataset.standard = standardCode;
+        deductBtn.dataset.maxDeduct = earned;
+        deductBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            deductFromStandard(standardCode, earned);
+        });
+        actionCell.appendChild(deductBtn);
+        
+        // Optional: Add quest count tooltip
+        const sourceCount = sources[standardCode]?.length || 0;
+        if (sourceCount > 0) {
+            row.title = `From ${sourceCount} quest${sourceCount !== 1 ? 's' : ''}`;
+        }
+        
+        row.appendChild(codeCell);
+        row.appendChild(nameCell);
+        row.appendChild(earnedCell);
+        row.appendChild(deductedCell);
+        row.appendChild(netCell);
+        row.appendChild(actionCell);
+        
+        tableBody.appendChild(row);
+    });
+    
+    // Add totals row
+    const totalRow = document.createElement("tr");
+    totalRow.style.backgroundColor = "rgba(0,30,180,0.5)";
+    totalRow.style.fontWeight = "bold";
+    
+    const totalLabelCell = document.createElement("td");
+    totalLabelCell.colSpan = 2;
+    totalLabelCell.textContent = "TOTALS";
+    totalLabelCell.style.textAlign = "right";
+    
+    const totalEarned = document.createElement("td");
+    totalEarned.className = "reward-amount";
+    totalEarned.innerHTML = `${Object.values(totals).reduce((s, v) => s + v, 0)} 💰`;
+    
+    const totalDeducted = document.createElement("td");
+    totalDeducted.className = "reward-amount deducted";
+    totalDeducted.innerHTML = `-${Object.values(standardDeductions).reduce((s, v) => s + v, 0)} 💰`;
+    
+    const totalNet = document.createElement("td");
+    totalNet.className = "reward-amount net";
+    totalNet.innerHTML = `<strong>${calculateTotalNetRewards()} 💰</strong>`;
+    
+    const emptyCell = document.createElement("td");
+    
+    totalRow.appendChild(totalLabelCell);
+    totalRow.appendChild(totalEarned);
+    totalRow.appendChild(totalDeducted);
+    totalRow.appendChild(totalNet);
+    totalRow.appendChild(emptyCell);
+    
+    tableBody.appendChild(totalRow);
+}
+
+// Initialize rewards overlay event listeners
+function initializeRewardsOverlay() {
+    // Get elements
+    const rewardLink = document.getElementById("profile-reward-link");
+    const closeBtn = document.getElementById("close-rewards");
+    const overlay = document.getElementById("rewards-overlay");
+    
+    if (rewardLink) {
+        rewardLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Update profile rewards first to ensure data is fresh
+            updateProfileRewards();
+            
+            // Open the rewards overlay
+            openRewardsOverlay();
+        });
+    }
+    
+    if (closeBtn) {
+        closeBtn.addEventListener("click", closeRewardsOverlay);
+    }
+    
+    if (overlay) {
+        // Close when clicking outside the rewards box
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) {
+                closeRewardsOverlay();
+            }
+        });
+    }
+    
+    // Close on Escape key
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && overlay && overlay.style.display === "flex") {
+            closeRewardsOverlay();
+        }
+    });
+}
 
 
 // ==========================
@@ -3066,8 +3411,8 @@ function collectStudentData() {
         // Quest rewards
         questRewards: questRewards,
         
-        // Deducted rewards
-        deductedRewards: deductedRewards,
+        // Standard deductions
+        standardDeductions: standardDeductions,
         
         // Collect art standards
         standards: {},
@@ -3196,14 +3541,16 @@ function loadStudentData(data) {
     if (data.studentProfile) {
         saveStudentProfile(data.studentProfile);
     }
-     if (typeof data.deductedRewards === 'number') {
-        deductedRewards = data.deductedRewards;
-        saveDeductedRewards();
-        console.log("Loaded deducted rewards:", deductedRewards);
+    
+    // Load standard deductions if present
+    if (data.standardDeductions) {
+        standardDeductions = data.standardDeductions;
+        saveStandardDeductions();
+        console.log("Loaded standard deductions:", standardDeductions);
     } else {
-        // Reset to 0 if not present in saved data
-        deductedRewards = 0;
-        saveDeductedRewards();
+        // Reset to empty if not present
+        standardDeductions = {};
+        saveStandardDeductions();
     }
     
     // Load completed quests - update the global variable
@@ -3312,9 +3659,6 @@ function loadStudentData(data) {
     
     // IMPORTANT: Recalculate rewards after loading all data
     recalculateAllQuestRewards();
-    if (typeof data.deductedRewards === 'number') {
-        deductedRewards = data.deductedRewards;
-        saveDeductedRewards();}
     
     // Refresh all displays
     updateProfileUI();
@@ -3459,37 +3803,6 @@ function convertMinutesToClassesDecimal(minutes, decimalPlaces = 1) {
 // ==========================
 // UPDATED PROFILE REWARDS SYSTEM
 // ==========================
-
-function updateProfileRewards() {
-    const netRewards = calculateNetRewards();
-    
-    console.log("=== DEBUG: updateProfileRewards() called ===");
-    console.log("Total earned:", getTotalEarnedRewards());
-    console.log("Deducted:", deductedRewards);
-    console.log("Net rewards:", netRewards);
-    
-    // UPDATE THE SPAN ELEMENT
-    const el = document.getElementById("profile-total-coins");
-    if (el) {
-        console.log("Found #profile-total-coins element, updating with net rewards...");
-        el.innerText = `${netRewards} 💰`;
-        console.log("Updated element with:", el.innerText);
-    } else {
-        console.error("ERROR: Could not find #profile-total-coins element!");
-    }
-    
-    // Also update quest reward display if quest is open
-    if (currentQuestId && document.getElementById("quest-overlay").style.display === "block") {
-        const questRewardEl = document.getElementById("quest-reward");
-        if (questRewardEl) {
-            // Show individual quest reward (not affected by deductions)
-            const questCoins = questRewards[currentQuestId] || 0;
-            questRewardEl.innerHTML = questCoins ? `<strong>${questCoins} 💰</strong>` : "—";
-        }
-    }
-}
-
-
 
 // ==========================
 // WELCOME TOUR SYSTEM - INTEGRATED INTO MAP
