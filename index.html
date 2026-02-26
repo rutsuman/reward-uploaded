@@ -66,8 +66,6 @@
     <div class="hotspot debug" data-map="map1" style="top:3%; left:57.3%;" data-city="quest72"></div>
     <div class="hotspot debug" data-map="map1" style="top:81%; left:37%;" data-city="quest73"></div>
 
-
-
     
     <!--quests for map2 watercolour's path-->
     <div class="hotspot debug" data-map="map2" style="top:16%; left:80%;" data-city="quest16"></div>
@@ -493,12 +491,8 @@
                  </div>
                 </div>
                 <div class="profile-money">
-                  <span class="money-icon">Reward:</span>
-                  <span id="profile-total-coins" class="money-amount">0</span>
+<a href="#" id="profile-reward-link" class="money-link" >Reward:</a><span id="profile-total-coins" class="money-amount">0</span>
                 </div>
-                <button id="deduct-rewards-btn" class="deduct-btn" title="Teacher only - Deduct spent rewards">
-                💸 Deduct Rewards
-                </button>
                 <button id="restart-tour-btn" class="tour-btn">🔄 Tour</button>
             </div>
           <!-- CENTER COLUMN -->
@@ -557,7 +551,7 @@
         </div>
     </div>
 </div>
-<!--------------------------------------------- Welcome Tour --------- --------------------------------------------->
+<!--------------------------------------------- Welcome Tour ------------------------------------------------------>
 <div id="welcome-tour-container" style="display: none;">
   <!-- Tour Image - positioned absolutely -->
   <div id="welcome-tour-image-wrapper">
@@ -575,7 +569,35 @@
     </div>
   </div>
 </div>
+<!------------------------------------- Rewards by Standard Overlay ----------------------------------------------->
+<div id="rewards-overlay" class="rewards-overlay">
+    <div id="rewards-box">
+        <span id="close-rewards">&times;</span>
+        <h2 id="rewards-title">Rewards by Standard</h2>
+        
+        <div id="rewards-total-summary"></div>
+        
+        <table class="rewards-table">
+            <thead>
+                <tr>
+                    <th>Standard Code</th>
+            <th>Standard Description</th>
+            <th>Earned</th>
+            <th>Deducted</th>
+            <th>Net Available</th>
+            <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="rewards-table-body">
+                <!-- Will be populated by JavaScript -->
+            </tbody>
+        </table>
+        
+        <div style="text-align: center; margin-top: 15px; color: #aaddff; font-size: 0.9em;">
+            <em>Rewards are calculated as 10 💰 per grade point earned</em>
+        </div>
+    </div>
+</div>
 <script src="script.js"></script>
 </body>
 </html>
-
