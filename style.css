@@ -160,12 +160,12 @@ html, body {
 }
 
 
-/* Debug: show hotspots*/
+/* Debug: show hotspots
 .hotspot.debug {
     background: rgba(224, 50, 50, 0.461);
 }
 
-/* Grid overlay*/
+/* Grid overlay
 #map-container::after {
     content: "";
     position: absolute;
@@ -3476,4 +3476,95 @@ input:focus,
 
 .money-link:hover {
     opacity: 0.8;
+}
+/* ======================================= Restriction Popup =================================================*/
+.restriction-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.restriction-content {
+    background: rgba(214, 180, 26, 0.521);;
+    border: 2px solid #c9c87c;
+    border-radius: 15px;
+    padding: 25px;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(201, 168, 124, 0.5);
+    position: relative;
+    animation: popIn 0.3s ease-out;
+}
+
+.restriction-content h3 {
+    color: #ffd700;
+    font-size: 24px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    border-bottom: 2px solid #c9a87c;
+    padding-bottom: 10px;
+}
+
+.restriction-content p {
+    color: #f0e6d2;
+    font-size: 18px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+.restriction-link {
+    display: inline-block;
+    color: #ffd700;
+    font-size: 20px;
+    font-weight: bold;
+    text-decoration: none;
+    padding: 10px 20px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    margin: 10px 0 20px 0;
+    border: 1px solid #c9a87c;
+    transition: all 0.3s ease;
+}
+
+.restriction-link:hover {
+    background: rgba(255, 215, 0, 0.2);
+    transform: scale(1.05);
+    color: #fff;
+    cursor: pointer;
+}
+
+.restriction-close {
+    background: #c9a87c;
+    color: #2a1e0f;
+    border: none;
+    padding: 8px 25px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.restriction-close:hover {
+    background: #e6c9a0;
+    transform: scale(1.05);
+}
+
+@keyframes popIn {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
