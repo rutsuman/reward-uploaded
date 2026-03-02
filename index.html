@@ -598,6 +598,27 @@
         </div>
     </div>
 </div>
+<!-------------------------- Restriction Popup (One Quest at a Time) ----------------------------------------------->
+<div id="restriction-popup" class="restriction-popup" style="display: none;">
+    <div class="restriction-content">
+        <h3>⚔️ Quest Restriction ⚔️</h3>
+        <p id="restriction-message">You already have an active quest. Please finish it before starting a new one.</p>
+        <div id="active-quest-link-container">
+            <a href="#" id="active-quest-link" class="restriction-link"></a>
+        </div>
+        <button class="restriction-close" onclick="closeRestrictionPopup()">I Understand</button>
+    </div>
+</div>
+
+<!------------------------------------ Prerequisite Popup (MVP Requirements) -------------------------------------->
+<div id="prerequisite-popup" class="restriction-popup" style="display: none;">
+    <div class="restriction-content">
+        <h3>🏆 MVP Requirements 🏆</h3>
+        <p id="prerequisite-message"></p>
+        <div id="prerequisite-quests-list" style="margin: 15px 0; color: #f0e6d2; font-size: 16px;"></div>
+        <button class="restriction-close" onclick="closePrerequisitePopup()">I Understand</button>
+    </div>
+</div>
 <script src="script.js"></script>
 </body>
 </html>
