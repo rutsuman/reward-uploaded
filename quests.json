@@ -427,7 +427,7 @@
       {"type": "Video sample","url": "https://www.youtube.com/watch?v=igEfTMV3Bbc"},
       {"type": "Video sample","url": "https://www.youtube.com/watch?v=EVvyxjb4hn4"}],
     "reward": " you got money!!!!",
-    "character": "charimage/char8.png",
+    "character": "charimage/char8.gif",
     "style": "",
     "prerequisites": ["quest1"],
     "completed": false,
@@ -2610,7 +2610,7 @@
         "links": [{"type": "Head Looms method","url": "https://www.youtube.com/watch?v=A6KMT4Potss"},
         {"type": "Video sample","url": "https://www.youtube.com/watch?v=v1J9hcXSlCc"},
         {"type": "Video sample","url": "https://www.youtube.com/watch?v=MaI7bCVUNqM"}],
-      "reward": "you got money!!!!",
+      "reward": "",
       "character": "charimage/char21.gif",
       "style": "",
       "prerequisites": [],
@@ -2849,11 +2849,12 @@
           }
         ]
       },
-        "links": [{"type": "Still life","url": "https://www.youtube.com/watch?v=7vZkxte2-F8&list=PL1EmOEpakxeGancqppKytfrbmXMW2AM45"}],
-      "reward": "you got money!!!!",
+        "links": [{"type": "Still life","url": "https://www.youtube.com/watch?v=7vZkxte2-F8&list=PL1EmOEpakxeGancqppKytfrbmXMW2AM45"},
+                  {"type": "How to draw fabric","url":"https://www.instagram.com/reel/DTKid_Wgnk-/?igsh=MWdxY29ub2s2YXBldQ=="}],      
+        "reward": "you got money!!!!",
       "character": "charimage/char35.gif",
       "style": "mvp",
-      "prerequisites": ["quest34"],
+      "prerequisites": ["quest34","quest48"],
       "completed": false,
       "timer": {
     "allottedMinutes": 300},
@@ -2897,8 +2898,12 @@
           }
         ]
       },
-      "links": [""],
-      "reward": "you got money!!!!",
+        "links": [{"type": "Image sample","url": "https://www.studentartguide.com/wp-content/uploads/2015/02/one-point-perspective-drawings.jpg"},
+        {"type": "video sample","url": "https://www.youtube.com/watch?v=Z7g7xHFGHC0&list=PLzX9r5YIcHzsmPpZ6RZGROR5AZ7b5rgzv"},
+        {"type": "Video sample","url": "https://www.youtube.com/watch?v=8AMAlQHCVtA"},
+        {"type": "Video sample","url": "https://www.youtube.com/watch?v=Y5j5r3yDd2I"},
+        {"type": "Video sample","url": "https://www.youtube.com/watch?v=XRrKohWdpeQ&list=PLnifj-hFGWC_uKCeN4f3sIFEPBOEpT2jI"}],
+      "reward": "",
       "character": "charimage/char42.gif",
       "style": "",
       "prerequisites": [],
@@ -2945,8 +2950,12 @@
           }
         ]
       },
-      "links": [""],
-      "reward": "you got money!!!!",
+        "links": [{"type": "Image sample","url": "https://www.google.com.hk/search?newwindow=1&sca_esv=c8cadf7be06f0f41&udm=2&fbs=ADc_l-Z6XGGbkKmpylZqg2J7ZOuVNvV7jKtLqzLZ63dd2zPtrsojpaijeJRLrp4clUvcwVKNu3rFKn9HrtsZobwKMZoTjEjgIcooz5FwDW7ak7DYS75-N_l1m55YlKhB8Mm3WceMN6rEt7L-_mM10NDtjtv_qOoyKT2wmp8Pjhr5toQeN9wu1d4&q=two+points+perspective+drawing&sa=X&ved=2ahUKEwiSoeam8PiSAxUHFmIAHXYYIrcQtKgLegQIDxAB&biw=1422&bih=650&dpr=1.35"},
+        {"type": "video sample","url": "https://www.youtube.com/watch?v=9qc0zIa2gyI&list=PLzX9r5YIcHzsmPpZ6RZGROR5AZ7b5rgzv&index=4"},
+        {"type": "Video sample","url": "https://www.youtube.com/watch?v=8AMAlQHCVtA"},
+        {"type": "Video sample","url": "https://www.youtube.com/watch?v=Y5j5r3yDd2I"},
+        {"type": "Video sample","url": "https://www.youtube.com/watch?v=XRrKohWdpeQ&list=PLnifj-hFGWC_uKCeN4f3sIFEPBOEpT2jI"}],
+      "reward": "",
       "character": "charimage/char43.gif",
       "style": "",
       "prerequisites": [],
@@ -3185,8 +3194,10 @@
           }
         ]
       },
-      "links": [""],
-      "reward": "you got money!!!!",
+        "links": [
+        {"type": "Image sample","url": "https://www.google.com.hk/search?newwindow=1&sca_esv=385c5ad9083a15d4&udm=2&fbs=ADc_l-Z6XGGbkKmpylZqg2J7ZOuVNvV7jKtLqzLZ63dd2zPtrsojpaijeJRLrp4clUvcwVK2RjS9v5rvaPm09n2GvtThcdrkkZtPjpGk4bw7MHPsWpg49UaH3IJ-DTC0QzvLGGlKbX_xYVYdUvocOkTBCuMb_jAFPC8rqXRsftFxCjEobeJS81A&q=geometric+shapes+in+pencil&sa=X&ved=2ahUKEwib442E2faSAxVPEVkFHS8RF5gQtKgLegQIFBAB"},
+        {"type": "Image sample Charcoal","url": "https://www.google.com.hk/search?q=geometric+shapes+in+charcoa&newwindow=1&sca_esv=385c5ad9083a15d4&udm=2&ei=ev6fadzIPLWo5NoPjZDy-QY&biw=1422&bih=650&ved=0ahUKEwjc7cCG2faSAxU1FFkFHQ2IPG8Q4dUDCBI&uact=5&oq=geometric+shapes+in+charcoa&gs_lp=Egtnd3Mtd2l6LWltZyIbZ2VvbWV0cmljIHNoYXBlcyBpbiBjaGFyY29hSKQPUMEHWJUOcAJ4AJABAJgBmAOgAYAOqgEFMy00LjG4AQPIAQD4AQGYAgagAu4MwgIGEAAYCBgewgIHEAAYgAQYE8ICBhAAGBMYHsICBBAAGB6YAwCIBgGSBwcyLjMtMy4xoAf-CrIHBTMtMy4xuAe6DMIHBzMtMi4zLjHIB6MBgAgA&sclient=gws-wiz-img"}],
+      "reward": "",
       "character": "charimage/char48.gif",
       "style": "",
       "prerequisites": [],
