@@ -1,7 +1,7 @@
 console.log("profile button:", document.getElementById("profile-btn"));
 console.log("canvas:", document.getElementById("radar-chart"));
 
-const MVP_PASSWORD = "eduardo182"; // change later
+const MVP_PASSWORD = "eduardo182"; 
 let rubricLocked = loadRubricLocks();
 let teacherMode = false;
 let currentMap = "map1";
@@ -9,7 +9,7 @@ let completedQuests = loadQuestData();
 let questGrades = loadQuestGrades() || {};
 let gradingEnabled = false;
 let currentQuestId = null;
-let scale = 1;
+let scale = 1; // map sizing
 let quests = {}; // store all quests
 let questTimers = {}; // Store active timers
 let questStartTimes = loadQuestStartTimes(); // Load saved start times
@@ -17,7 +17,8 @@ let questAccepted = loadQuestAccepted(); // Track which quests have been accepte
 let questRewards = loadQuestRewards() || {}; // Reward system
 let standardDeductions = loadStandardDeductions(); // Object: { standardCode: totalDeducted }
 let studentWorks = loadStudentWorks();
-let hotspotPositions = {};
+let hotspotPositions = {}; // keep track of the positions of the hotsposts for different screen sizes
+let activeQuestId = null; // Will store the ID of the currently active quest
 
 // ==========================
 // STANDARD NAMES FOR REWARDS BREAKDOWN
@@ -258,16 +259,17 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Initialize work overlay
   setTimeout(() => {
-    initializeWorkOverlay();
+  initializeWorkOverlay();
   }, 500); // Small delay to ensure DOM is fully ready
-
   // Initialize gallery
   initializeGallery();
   updateProfileUI();
   recalculateAllQuestRewards();
-
   // Initialize rewards overlay
   initializeRewardsOverlay();
+  // Initialize active quest tracking
+  initializeActiveQuest();
+   startBackgroundTimerCheck();
 
   const container = document.getElementById("map-container");
 });
@@ -818,7 +820,6 @@ function handleQuestCheckChange(cityId, questCheck, questBox) {
   if (!questCheck.checked) {
     completedQuests[currentQuestId] = false;
     questBox.classList.remove("completed");
-
     // REMOVE GRADES WHEN UNCHECKED
     if (questGrades[currentQuestId]) {
       delete questGrades[currentQuestId];
@@ -834,14 +835,11 @@ function handleQuestCheckChange(cityId, questCheck, questBox) {
     if (rewardEl) {
       rewardEl.innerHTML = "—";
     }
-    
     // UPDATE PROFILE TOTAL
     updateProfileRewards();
-
     saveQuestData();
     return;
   }
-
   const password = prompt("Enter teacher password:");
 
   if (password !== MVP_PASSWORD) {
@@ -851,30 +849,31 @@ function handleQuestCheckChange(cityId, questCheck, questBox) {
     saveQuestData();
     return;
   }
-
   // ✅ teacher can grade
   teacherMode = true;
-
   // Unlock rubric so teacher can edit
   rubricLocked[currentQuestId] = false;
   saveRubricLocks();
-
   // Mark quest completed
   completedQuests[currentQuestId] = true;
+  if (activeQuestId === currentQuestId) {
+    console.log(`Quest ${currentQuestId} completed - clearing active quest`);
+    activeQuestId = null;
+    // Also update questAccepted if needed
+    if (questAccepted[currentQuestId]) {
+      questAccepted[currentQuestId] = false;
+      saveQuestAccepted();
+    }
+  }
   gradingEnabled = true;
   questBox.classList.add("completed");
-
  // Force remove timer styling when teacher completes it
   questBox.classList.remove("times-up", "warning");
-  
   // Also update timer display if it exists
   const timerDisplay = document.getElementById("timer-display");
   if (timerDisplay) {
     timerDisplay.textContent = "Completed";
   }
-  
-  saveQuestData();
-
   saveQuestData();
 
   // Stop timer if quest was accepted
@@ -883,7 +882,6 @@ function handleQuestCheckChange(cityId, questCheck, questBox) {
     questAccepted[cityId] = false;
     saveQuestAccepted();
   }
-
   // OPEN GRADING POPUP AFTER COMPLETION
   openRubricPopup(currentQuestId);
 }
@@ -3072,64 +3070,6 @@ function initializeQuestTimers() {
   }
 }
 
-function updateTimerDisplay(questId) {
-  if (!questStartTimes[questId]) return;
-  
-  const quest = quests[questId];
-  if (!quest || !quest.timer) return;
-  
-  // NEW: Calculate remaining minutes based on school days (every other weekday)
-  const startTime = new Date(questStartTimes[questId]);
-  const now = new Date();
-  
-  // Calculate calendar days difference
-  const diffTime = Math.abs(now - startTime);
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
-  // Count only weekdays in that period
-  let weekdaysCount = 0;
-  const currentDate = new Date(startTime);
-  
-  for (let i = 0; i <= diffDays; i++) {
-    const dayOfWeek = currentDate.getDay();
-    // 0 = Sunday, 6 = Saturday
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      weekdaysCount++;
-    }
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  
-  // Each class period is every OTHER weekday (every 2 school days)
-  const classPeriodsElapsed = Math.floor(weekdaysCount / 2);
-  const minutesPerClass = 75;
-  const elapsedMinutes = classPeriodsElapsed * minutesPerClass;
-  const remainingMinutes = Math.max(0, quest.timer.allottedMinutes - elapsedMinutes);
-  
-  const timerDisplay = document.getElementById("timer-display");
-  const questBox = document.getElementById("quest-box");
-  
-  if (timerDisplay && questBox && currentQuestId === questId) {
-    timerDisplay.textContent = formatTime(remainingMinutes, true);
-    
-    // Update quest box styling based on time remaining
-    const warningThreshold = quest.timer.allottedMinutes * 0.3; // 30% of allotted time
-    
-    if (remainingMinutes <= 0) {
-      questBox.classList.add("times-up");
-      questBox.classList.remove("warning");
-      timerDisplay.textContent = "TIME'S UP!";
-    } else if (remainingMinutes <= warningThreshold) {
-      questBox.classList.add("warning");
-      questBox.classList.remove("times-up");
-    } else {
-      questBox.classList.remove("warning", "times-up");
-    }
-  }
-    
-  // Save updated remaining time for persistence
-  return remainingMinutes;
-}
-
 function startQuestTimer(questId) {
   // Clear any existing timer for this quest
   if (questTimers[questId]) {
@@ -3154,15 +3094,164 @@ function stopQuestTimer(questId) {
     delete questTimers[questId];
   }
 }
+// ==========================
+// BACKGROUND TIMER CHECK
+// ==========================
+function startBackgroundTimerCheck() {
+  // Check all active timers every minute
+  setInterval(() => {
+    for (const questId in questAccepted) {
+      if (questAccepted[questId] && !completedQuests[questId]) {
+        // Update timer display if this quest is currently open
+        if (currentQuestId === questId) {
+          updateTimerDisplay(questId);
+        }
+        
+        // Check if time is up and handle accordingly
+        const remaining = calculateRemainingMinutes(questId);
+        if (remaining <= 0) {
+          // Mark as time's up
+          const questBox = document.getElementById("quest-box");
+          if (questBox && currentQuestId === questId) {
+            questBox.classList.add("times-up");
+            questBox.classList.remove("warning");
+          }
+        }
+      }
+    }
+  }, 60000); // Check every minute
+}
+
+// Helper function to calculate remaining minutes
+function calculateRemainingMinutes(questId) {
+  if (!questStartTimes[questId]) return 0;
+  
+  const quest = quests[questId];
+  if (!quest || !quest.timer) return 0;
+  
+  const startTime = new Date(questStartTimes[questId]);
+  const now = new Date();
+  
+  // Calculate calendar days difference
+  const diffTime = Math.abs(now - startTime);
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  // Count only weekdays in that period
+  let weekdaysCount = 0;
+  const currentDate = new Date(startTime);
+  
+  for (let i = 0; i <= diffDays; i++) {
+    const dayOfWeek = currentDate.getDay();
+    // 0 = Sunday, 6 = Saturday
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      weekdaysCount++;
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  // Each class period is every OTHER weekday (every 2 school days)
+  const classPeriodsElapsed = Math.floor(weekdaysCount / 2);
+  const minutesPerClass = 75;
+  const elapsedMinutes = classPeriodsElapsed * minutesPerClass;
+  
+  return Math.max(0, quest.timer.allottedMinutes - elapsedMinutes);
+}
+
+// Modified updateTimerDisplay to use the helper
+function updateTimerDisplay(questId) {
+  if (!questStartTimes[questId]) return;
+  
+  const quest = quests[questId];
+  if (!quest || !quest.timer) return;
+  
+  const startTime = new Date(questStartTimes[questId]);
+  const now = new Date();
+  
+  // Calculate calendar days difference
+  const diffTime = Math.abs(now - startTime);
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  // Count only weekdays in that period
+  let weekdaysCount = 0;
+  const currentDate = new Date(startTime);
+  
+  for (let i = 0; i <= diffDays; i++) {
+    const dayOfWeek = currentDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      weekdaysCount++;
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  // Each class period is every OTHER weekday
+  const classPeriodsElapsed = Math.floor(weekdaysCount / 2);
+  const totalClassPeriods = Math.ceil(quest.timer.allottedMinutes / 75);
+  const remainingPeriods = Math.max(0, totalClassPeriods - classPeriodsElapsed);
+  const remainingMinutes = remainingPeriods * 75;
+  
+  // Calculate remaining PERIODS percentage
+  const remainingPercent = (remainingPeriods / totalClassPeriods) * 100;
+  const warningThreshold = 30;
+  
+  const timerDisplay = document.getElementById("timer-display");
+  const questBox = document.getElementById("quest-box");
+  
+  if (timerDisplay && questBox && currentQuestId === questId) {
+    timerDisplay.textContent = formatTime(remainingMinutes, true);
+    
+    if (remainingMinutes <= 0) {
+      questBox.classList.add("times-up");
+      questBox.classList.remove("warning");
+      timerDisplay.textContent = "TIME'S UP!";
+    } else if (remainingPercent <= warningThreshold) {
+      // This will trigger when 30% of CLASS PERIODS remain
+      // For a 1-class quest: 30% of 1 period = 0.3 periods
+      // 0.3 periods = about 0.6 school days (warning on Day 2!)
+      questBox.classList.add("warning");
+      questBox.classList.remove("times-up");
+    } else {
+      questBox.classList.remove("warning", "times-up");
+    }
+  }
+    
+  return remainingMinutes;
+}
 
 function acceptQuest(questId) {
   const quest = quests[questId];
   if (!quest || !quest.timer) return;
 
-  const minutes = quest.timer.allottedMinutes;                                    //-----------------------
-  const classesDisplay = convertMinutesToClasses(minutes);                        //-----------------------
+    // Check if quest can be accepted
+  const check = canAcceptQuest(questId);
+  
+  if (!check.allowed) {
+    if (check.reason === "active_quest") {
+      // Show popup with link to active quest
+      showRestrictionPopup(check.activeQuestId);
+    } else if (check.reason === "prerequisites") {
+      // Create message based on how many prerequisites are needed
+      let message = "";
+      if (check.required === 2) {
+        message = `This MVP quest requires at least 2 completed formative quests. You have completed ${check.completed} of the required ${check.required}.`;
+      } else {
+        message = `This MVP quest requires completing its formative quest first.`;
+      }
+      
+      // Show popup with list of prerequisites
+      showPrerequisitePopup(message, check.prerequisites);
+    }
+    return;
+  }
+
+  const minutes = quest.timer.allottedMinutes;     
+  const classesDisplay = convertMinutesToClasses(minutes);         
   
   if (confirm(`Accept "${quest.title}"?\n\nYou will have ${formatTime(quest.timer.allottedMinutes, true)} to complete this quest.`)) {
+     if (activeQuestId && activeQuestId !== questId) {
+      // Clear the previous active quest
+      questAccepted[activeQuestId] = false;
+      stopQuestTimer(activeQuestId);
+    }    
     // Mark quest as accepted
     questAccepted[questId] = true;
     questStartTimes[questId] = new Date().toISOString();
@@ -3188,6 +3277,7 @@ function acceptQuest(questId) {
     
     // Save to localStorage
     saveQuestData();
+    console.log(`Quest accepted: ${questId}. Active quest: ${activeQuestId}`);
   }
 }
 
@@ -3772,10 +3862,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-
-                                                                                        // ==========================
+// ==================================================================================================
 // MINUTES TO CLASSES CONVERSION
-// ==========================
+// ==================================================================================================
 function convertMinutesToClasses(minutes) {
   if (typeof minutes !== 'number' || isNaN(minutes)) {
     return "0 classes";
@@ -3798,6 +3887,75 @@ function convertMinutesToClassesDecimal(minutes, decimalPlaces = 1) {
   
   const classes = (minutes / 75).toFixed(decimalPlaces);
   return `${classes} classes`;
+}
+
+// ==========================
+// QUEST RESTRICTION FUNCTIONS
+// ==========================
+
+// Get the currently active quest ID
+function getActiveQuestId() {
+    // Check if there's any accepted quest that's not completed
+    for (const questId in questAccepted) {
+        if (questAccepted[questId] && !completedQuests[questId]) {
+            return questId;
+        }
+    }
+    return null;
+}
+
+// Update the active quest ID based on accepted quests
+function updateActiveQuestId() {
+    activeQuestId = getActiveQuestId();
+    return activeQuestId;
+}
+
+// Check if a quest can be accepted
+function canAcceptQuest(questId) {
+    // First, update the active quest ID
+    updateActiveQuestId();
+    
+    const quest = quests[questId];
+    if (!quest) return { allowed: false, reason: "Quest not found" };
+    
+    // RULE 1: Check if there's already an active quest (and it's not this one)
+    if (activeQuestId && activeQuestId !== questId) {
+        return { 
+            allowed: false, 
+            reason: "active_quest",
+            activeQuestId: activeQuestId
+        };
+    }
+    
+    // RULE 2: For MVP quests, check prerequisites
+    if (quest.style === "mvp") {
+        const prerequisites = quest.prerequisites || [];
+        
+        // Count how many prerequisites are completed
+        const completedPrereqs = prerequisites.filter(prereqId => completedQuests[prereqId]);
+        
+        // Determine required number of prerequisites
+        const requiredPrereqs = prerequisites.length >= 2 ? 2 : prerequisites.length;
+        
+        if (completedPrereqs.length < requiredPrereqs) {
+            return {
+                allowed: false,
+                reason: "prerequisites",
+                prerequisites: prerequisites,
+                completed: completedPrereqs.length,
+                required: requiredPrereqs
+            };
+        }
+    }
+    
+    // All checks passed
+    return { allowed: true };
+}
+
+// Initialize active quest ID on page load
+function initializeActiveQuest() {
+    activeQuestId = getActiveQuestId();
+    console.log("Active quest on load:", activeQuestId);
 }
 //==============================REWARD SYSTEM =============================================
 // ==========================
@@ -4950,3 +5108,76 @@ function initializeGallery() {
     }
   });
 }
+
+// ===============================================================================================================
+// RESTRICTION POPUP FUNCTIONS
+// ===============================================================================================================
+
+function showRestrictionPopup(activeQuestId) {
+    const popup = document.getElementById("restriction-popup");
+    const link = document.getElementById("active-quest-link");
+    
+    // Get the active quest title
+    const activeQuest = quests[activeQuestId];
+    if (activeQuest) {
+        link.textContent = `"${activeQuest.title}"`;
+        link.onclick = (e) => {
+            e.preventDefault();
+            closeRestrictionPopup();
+            
+            // If there's an open quest overlay, close it first
+            const questOverlay = document.getElementById("quest-overlay");
+            if (questOverlay && questOverlay.style.display === "block") {
+                closeQuest();
+            }
+            
+            // Open the active quest
+            setTimeout(() => {
+                openQuest(activeQuestId);
+            }, 100);
+        };
+    }
+    
+    popup.style.display = "flex";
+}
+
+function closeRestrictionPopup() {
+    document.getElementById("restriction-popup").style.display = "none";
+}
+
+function showPrerequisitePopup(message, prerequisites) {
+    const popup = document.getElementById("prerequisite-popup");
+    const messageEl = document.getElementById("prerequisite-message");
+    const listEl = document.getElementById("prerequisite-quests-list");
+    
+    messageEl.textContent = message;
+    
+    // Create HTML list of prerequisites
+    if (prerequisites && prerequisites.length > 0) {
+        let listHTML = "<ul style='list-style: none; padding: 0;'>";
+        prerequisites.forEach(prereqId => {
+            const quest = quests[prereqId];
+            if (quest) {
+                const completed = completedQuests[prereqId] ? "✓" : "✗";
+                const color = completedQuests[prereqId] ? "#4CAF50" : "#ff6b6b";
+                listHTML += `<li style='margin: 8px 0; color: ${color};'>${completed} ${quest.title}</li>`;
+            }
+        });
+        listHTML += "</ul>";
+        listEl.innerHTML = listHTML;
+    }
+    
+    popup.style.display = "flex";
+}
+
+function closePrerequisitePopup() {
+    document.getElementById("prerequisite-popup").style.display = "none";
+}
+
+// Close popups with Escape key
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        closeRestrictionPopup();
+        closePrerequisitePopup();
+    }
+});
